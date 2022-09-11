@@ -7,13 +7,44 @@ import sys
 import gradio as gr
 from scipy.stats import stats
 from sklearn import preprocessing
+from sklearn.cluster import KMeans, MiniBatchKMeans, SpectralClustering, MeanShift
 from sklearn.decomposition import PCA
+from sklearn.linear_model import SGDClassifier, SGDRegressor, ElasticNet, Lasso, Ridge
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC, SVC, SVR
+import argparse as ap
+import json
+from pprint import pprint as nice_print
+
+
+class Merge_Datasets:
+
+    def __init__(self, x_data, y_data):
+        self.merged_data = None
+        self.x_data = x_data
+        self.y_data = y_data
+
+    """
+    Merge datasets into one dataframe with the y data as the target and the x data as the features.
+    """
+
+    def merge_datasets(self):
+        self.merged_data = pd.concat([self.x_data, self.y_data], axis=1)
+        return self.merged_data
 
 
 class Handling_Data:
 
     def __init__(self, data):
+        self.data_numerical_columns = None
+        self.data_numerical_IQR = None
+        self.data_visualized = None
+        self.data_numerical_outliers_count = None
+        self.data_numerical = None
+        self.data_intergrated = None
         self.normalized_data = None
         self.pca = None
         self.data_reduced = None
@@ -37,7 +68,7 @@ class Handling_Data:
         self.data_hist = data.hist(bins=50, figsize=(20, 15))  # data histogram
         self.data_boxplot = data.boxplot(figsize=(20, 15))  # data boxplot
         self.data_kde = data.plot(kind='kde', figsize=(20, 15))  # data kde
-        # self.data_scatter = data.plot(kind='scatter', figsize=(20, 15))  # data scatter
+        self.DP_Report = list()  # Data Preprocessing Report
 
     def __str__(self):
         return str(self.columns)  # get string of column name
@@ -75,228 +106,203 @@ class Handling_Data:
     def __lt__(self, other):
         return self.data < other  # This returns the dataframe with the less than of the specified
 
-    def load_data(self, file_name):
-        """
-        This function loads the data from the specified file name
-        :param file_name: the name of the file to be loaded
-        :return: the dataframe of the loaded data
-        """
-        self.data = pd.read_csv(file_name)
-        return self.data
-
     def data_cleaning(self):
         """
         This function cleans the data by  handling missing values , smoothing the noisy data ,
         resolving inconsistencies in the data and removing outliers and duplicates
+
         :return: the cleaned dataframe
         """
+
+        self.DP_Report.append('\n ' + '-- Data Cleaning --' + '\n')
+
         self.data.head(10)
         self.data_info = self.data.info()
-        print("Tip- Data Info:", self.data_info)
-        print("\n")
+        self.DP_Report.append('Data Information: \n' + str(self.data_info))
 
         # Description of the dataset
-        self.data_describe = self.data.describe() if any else print('No Describe')
-        print('Tip - Description of the dataset:', self.data_describe)
-        print("\n")
+        self.data_describe = self.data.describe() if any else print('No Description')
+
+        self.DP_Report.append('Data Description: \n' + str(self.data_describe))
 
         self.data_shape = self.data.shape if any else print('Dataset is empty')
-        print('Tip - Shape of the dataset:', self.data_shape)
-        print("\n")
+        self.DP_Report.append('Data Shape: \n' + str(self.data_shape))
 
-        # Check if data set has a probability distribution
         if self.data_shape[0] > 1 and self.data_shape[1] > 1:
-            print('Tip - Data has a probability distribution')
+            self.DP_Report.append('Data has a probability distribution: \n')
         else:
-            print('Tip - Data has no probability distribution')
-
-        print("\n")
+            self.DP_Report.append('Data does not have a probability distribution: \n')
 
         self.data_type = type(self.data)
-        print('Fact - Data type:', self.data_type)
-        print("\n")
+        self.DP_Report.append('Data Type: \n' + str(self.data_type))
 
         """
         Handling Outliers
         """
 
-        if self.data.shape[0] > 1000:  # Check if the data is larger than 1000 rows
-            print("The next step is to check for outliers in the dataframe")
+        self.DP_Report.append('\n -- Handling Outliers -- \n')
 
-            print("The best step to detect outliers with this dataset size is to use IQR")
-            # Calculate the IQR
+        if self.data.shape[0] > 1000:  # if the data is larger than 1000 rows
+            self.DP_Report.append('Data has more than 1000 rows: \n')
 
-            print("\n")
             self.data_numerical = self.data._get_numeric_data()
             self.data_numerical_columns = self.data_numerical.columns
-            print("Numerical columns:", self.data_numerical_columns)
-            print("\n")
+            self.DP_Report.append('Data Numerical Columns: \n' + str(self.data_numerical_columns))
 
             self.data_numerical_IQR = self.data_numerical.quantile(0.75) - self.data_numerical.quantile(0.25)
-            print("IQR:", self.data_numerical_IQR)
-            print("\n")
+            self.DP_Report.append('Data Numerical IQR: \n' + str(self.data_numerical_IQR))
 
             self.data_numerical_outliers = self.data_numerical[(self.data_numerical > self.data_numerical_IQR * 1.5) | (
                     self.data_numerical < self.data_numerical_IQR * 0.5)]
-            print("Outliers:", self.data_numerical_outliers)
-            print("\n")
+            self.DP_Report.append('Data Numerical Outliers: \n' + str(self.data_numerical_outliers))
+            # print("Outliers:", self.data_numerical_outliers)
 
             self.data_numerical_outliers_count = self.data_numerical_outliers.shape[0]
-            print("Number of outliers:", self.data_numerical_outliers_count)
-            print("\n")
+            self.DP_Report.append('Data Numerical Outliers Count: \n' + str(self.data_numerical_outliers_count))
+            # print("Number of outliers:", self.data_numerical_outliers_count)
 
             self.data_numerical_outliers_percentage = self.data_numerical_outliers_count / self.data_numerical.shape[
                 0] * 100
-            print("Percentage of outliers:", self.data_numerical_outliers_percentage)
-            print("\n")
+            self.DP_Report.append(
+                'Data Numerical Outliers Percentage: \n' + str(self.data_numerical_outliers_percentage))
 
             if self.data_numerical_outliers_percentage > 0.1:
-                print("The data has outliers")
-                print("\n")
-                print("The next step is to remove the outliers")
+                self.DP_Report.append('Data Numerical Outliers Percentage is greater than 10%: \n')
+                # print("The data has outliers")
+
+                self.DP_Report.append('The next step is to remove the outliers: \n')
+
                 self.data_numerical_outliers_removed = self.data_numerical.drop(self.data_numerical_outliers.index)
-                print("Outliers removed:", self.data_numerical_outliers_removed)
-                print("\n")
+                self.DP_Report.append('Data Numerical Outliers Removed: \n' + str(self.data_numerical_outliers_removed))
+                # print("Outliers removed:", self.data_numerical_outliers_removed)
+
                 self.data = self.data_numerical_outliers_removed
-                print("Dataframe with outliers removed:", self.data)
-                print("\n")
+                self.DP_Report.append('Dataframe with outliers removed: \n' + str(self.data))
+
 
             else:
                 pass
 
         # Check if the dataset is less than 1000 rows
         elif self.data.shape[0] < 1000:
-            print("The next step is to check for outliers in the dataframe")
+            self.DP_Report.append('Data has less than 1000 rows: \n')
 
-            print("The best step to detect outliers with this dataset size is to use IQR")
+            self.DP_Report.append('The next step is to check for outliers in the dataframe using IQR: \n')
 
-            # Calculate Z-score
-            # Perform z-score only on numerical columns and not categorical columns
-            print("\n")
             self.data_numerical = self.data._get_numeric_data()
-            self.data_numerical_columns = self.data_numerical.columns
-            print("Numerical columns:", self.data_numerical_columns)
-            print("\n")
 
-            # Calculate the z-score for each column
+            self.data_numerical_columns = self.data_numerical.columns
+            self.DP_Report.append('Data Numerical Columns: ' + '\n' + str(self.data_numerical_columns))
+
             for column in self.data_numerical_columns:
                 self.data_numerical[column] = (self.data_numerical[column] - self.data_numerical[column].mean()) / \
                                               self.data_numerical[column].std()
-                print("Z-score for column:", column, "is:", self.data_numerical[column])
-                print("\n")
+
+                self.DP_Report.append('Z-score for column: \n' + str(column) + str(self.data_numerical[column]))
 
                 threshold = 2  # threshold for the z-score
-                self.data_outliers = self.data_numerical[(self.data_numerical[column] > threshold) | (
-                        self.data_numerical[
-                            column] < -threshold)]  # Check if any values are outside the bounds and save them to self.data_outliers
-                print("Outliers:", self.data_outliers)
-                print("\n")
+                self.data_outliers = self.data_numerical[
+                    (self.data_numerical[column] > threshold) | (self.data_numerical[column] < -threshold)]
+                self.DP_Report.append('Data Outliers: \n' + str(self.data_outliers))
 
                 if self.data_outliers.empty:
-                    print("No outliers found")
+                    self.DP_Report.append('Data Outliers is empty:' + '\n')
+
                 else:
-                    print("Number of outliers found:", self.data_outliers.shape[0])
-                    print("Tip - Outliers can be removed by dropping the rows")
+                    self.DP_Report.append('Data Outliers is not empty:' + '\n')
 
             self.data.drop(self.data_outliers.index, inplace=True)
-            print("\n")
-            print("All outliers removed")
+            self.DP_Report.append('Dataframe with outliers removed:' + '\n' + str(self.data))
 
         """
         Handling Columns
         """
 
+        self.DP_Report.append('\n' + ' -- Handling Columns -- ' + '\n')
+
         self.data_columns = self.data.columns
-        print('Fact - Columns:', self.data_columns)
-        print("\n")
+        self.DP_Report.append('Data Columns:' + '\n' + str(self.data_columns))
 
         for column in self.data_columns:  # Loop through each column in the dataframe
-            # print("Column:", column)
-            # print("\n")
-
-            if self.data[column].nunique() == 1:  # if the column has only one value, then we can drop it
-                print('Tip - Column:', column, 'has only one value, so it would be best to drop it')
+            if self.data[column].nunique() == 1:
+                self.DP_Report.append(
+                    'Tip - Column:' + '\n' + str(column) + 'has only one unique value, so it would best to remove it')
                 self.data.drop(column, axis=1, inplace=True)  # drop the column
 
             # if there are columns with no values, then we can drop them
             elif self.data[column].nunique() == 0:
-                print('Tip - Column:', column, 'has no values, so it would be best to drop it')
+                self.DP_Report.append(
+                    'Tip - Column:' + '\n' + str(column) + 'has no unique values, so it would best to drop it')
                 self.data.drop(column, axis=1, inplace=True)
 
-            # Clean column names
             # if there are columns no name, let's rename them to the column number
             elif self.data[column].name is None or self.data[column].name == '' or 'Unnamed' in self.data[column].name:
-                print('Tip - Column:', column, 'has no name, so it would be best to rename it')
+                self.DP_Report.append(
+                    'Tip - Column:' + '\n' + str(column) + 'has no name, so it would best to rename it')
                 self.data.rename(columns={column: str(column)}, inplace=True)
-                # print('Tip - Column:', column, 'has been renamed to:', str(column))
             else:
-                print('Fact - Column:', column, 'has the name:', self.data[column].name)
+                self.DP_Report.append('Column:' + '\n' + str(column) + 'has the name: \n' + str(self.data[column].name))
 
         """
         Handling missing values
         """
 
-        print("\n")
-        # Data Cleaning
-        print('The next step is to check for missing values in the dataframe depending on the number of missing values')
+        self.DP_Report.append('\n' + ' -- Handling Missing Values -- ' + '\n')
+
         self.data_missing = self.data.isnull().sum().sum() if any else print('No Missing Values')
+        self.DP_Report.append('Data Missing: \n' + str(self.data_missing))
         # print(self.data_missing + ' missing values')
 
         # if there are no missing values, then the data is clean
         if self.data_missing == 0:
-            print('No missing values detected')
+            self.DP_Report.append('Tip - There are no missing values in the dataframe')
+            self.DP_Report.append('The next step is to check for duplicate rows: \n')
 
         # if the missing values are between 0 and 10% of the total values, then we can drop them
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.1):
-            print(
-                "Amount of missing values is less than 10% of the total values : The best option is to drop the missing values")
-            self.data.dropna(inplace=True)  # Drops the missing values
-            self.message_output = f'Dropped {self.data_missing} missing values'
+            self.DP_Report.append(
+                'Amount of missing values is less than 10% of the total values : The best option is to drop the missing values')
+            self.data.dropna(inplace=True)
 
         # if the missing values are between 10% and 20% of the total values, then we can replace them with the mean of the column
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.2):
-            print(
-                "Amount of missing values is between 10% and 20% of the total values : The best option is to replace the missing values with the mean of the column")
+            self.DP_Report.append(
+                'Amount of missing values is between 10% and 20% of the total values : The best option is to replace the missing values with the mean of the column')
             self.data.fillna(self.data.mean(), inplace=True)
-            self.message_output = f'Dropped {self.data_missing} missing values'
-            # return json.dumps(self.message_output + ' and replaced with the mean of the column')
 
-        # if the missing values are between 20% and 30% of the total values, then we can replace them with the median of the column
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.3):
-            print(
-                "Amount of missing values is between 20% and 30% of the total values : The best option is to replace the missing values with the median of the column")
+            self.DP_Report.append(
+                'Amount of missing values is between 20% and 30% of the total values : The best option is to replace the missing values with the median of the column')
             self.data.fillna(self.data.median(), inplace=True)
-            self.message_output = f'Dropped {self.data_missing} missing values'
 
         # if the missing values are between 30% and 40% of the total values, then we can replace them with the mode of the column
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.4):
-            print(
-                "Amount of missing values is between 30% and 40% of the total values : The best option is to replace the missing values with the mode of the column")
+            self.DP_Report.append(
+                'Amount of missing values is between 30% and 40% of the total values : The best option is to replace the missing values with the mode of the column')
             self.data.fillna(self.data.mode(), inplace=True)
-            self.message_output = f'Dropped {self.data_missing} missing values'
 
         # if the missing values are between 40% and the rest of the total values, then we can replace them with the most common value of the column
         else:
+            self.DP_Report.append(
+                'Amount of missing values is between 40% and the rest of the total values : The best option is to replace the missing values with the most common value of the column')
             self.data.fillna(self.data.value_counts().idxmax(), inplace=True)
-            print(
-                "Amount of missing values is greater than 40% of the total values : The best option is to replace the missing values with the most common value of the column")
-            self.message_output = f'Dropped {self.data_missing} missing values'
 
         """
         Handling Duplicates
         """
-        self.data_duplicates = self.data.duplicated().sum()  # Check if there are any duplicates in the dataframe in any column
-        print("\n")
-        print('Fact - Duplicates:', self.data_duplicates)
+
+        self.DP_Report.append('\n' + ' -- Handling Duplicates -- ' + '\n')
+
+        self.data_duplicates = self.data.duplicated().sum()
+        self.DP_Report.append('Data Duplicates:' + '\n' + str(self.data_duplicates))
 
         if self.data_duplicates > 0:  # Check if there are any duplicates in the dataframe
-            print("There are " + str(self.data_duplicates) + " duplicates in the dataframe")
-
-            self.data_duplicates_df = self.data[self.data.duplicated()]  # Get the duplicates from the dataframe
-            self.data_duplicates_df.to_csv('duplicates.csv')  # Export the duplicates to a csv file
-            self.data = self.data.drop_duplicates()  # Drop the duplicates from the dataframe
-            print('After the duplicates are removed from the dataframe'
-                  '\n' + 'The dataframe  should have ' + str(len(self.data)) + ' rows')
+            self.DP_Report.append('Tip - There are ' + str(self.data_duplicates) + 'duplicates in the dataframe')
+            self.data_duplicates_df = self.data[self.data.duplicated()]
+            self.data_duplicates_df.to_csv('duplicates.csv')
+            self.data = self.data.drop_duplicates()
+            self.DP_Report.append(
+                'After the duplicates have been removed, the dataframe should have ' + str(len(self.data)) + 'rows')
 
         return self.data, self.message_output, self.data_columns, self.data_duplicates_df, self.data_outliers, self.data_regression, self.data_duplicates
 
@@ -306,7 +312,10 @@ class Handling_Data:
         """
         self.data_intergrated = self.data.copy()
         self.data.to_sql('data', self.engine, if_exists='replace', index=False)
-        print('Data has been integrated into the database')
+        self.DP_Report.append('Data has been integrated into the database')
+
+        self.data = self.data_intergrated
+
         return self.data
 
     def data_transformation(self):
@@ -319,9 +328,13 @@ class Handling_Data:
         # If the dataset is not normalized, then normalize the data
         if self.normalized_data.mean().mean() == 0:
             self.normalized_data = (self.normalized_data - self.normalized_data.mean()) / self.normalized_data.std()
-            print('Data has been normalized')
+            self.DP_Report.append('Data has been normalized')
         else:
-            print('Data is already normalized')
+            self.DP_Report.append('Data is already normalized')
+
+        self.data = self.normalized_data.copy()
+
+        return self.data
 
     def data_reduction(self):
         """
@@ -333,22 +346,20 @@ class Handling_Data:
             self.data_reduced = self.data.copy()
             self.data_reduced = self.data_reduced.drop(['id'],
                                                        axis=1) if any else self.data_reduced  # Drop the id column
-            # ignore date columns if they exist
             self.data_reduced = self.data_reduced.drop(['date'], axis=1) if any else self.data_reduced
 
-            # if the data is numeric, then we can perform PCA
             self.pca = PCA(n_components=2)  # Create a PCA object
             self.pca.fit(self.data_reduced)  # Fit the PCA object to the data
             self.data_reduced = self.pca.transform(self.data_reduced)  # Transform the data
             self.data_reduced = pd.DataFrame(self.data_reduced) if self.data_reduced.ndim == 1 else self.data_reduced
-            self.data_reduced.columns = ['PC1', 'PC2']  # Update the column names
+            self.data_reduced.columns = ['PC1', 'PC2']  # Rename the columns
             self.data_reduced['id'] = self.data['id']  # Add the id column back to the data
             self.data_reduced['date'] = self.data['date']  # Add the date column back to the data
             self.data = self.data_reduced  # Update the data
 
-            print('Data has been reduced')
+            self.DP_Report.append('Data has been reduced using PCA')
         else:
-            print('Data is not numeric, PCA cannot be performed')
+            self.DP_Report.append('Data is not numeric, so PCA cannot be reduced')
 
         return self.data, self.data_reduced
 
@@ -357,7 +368,6 @@ class Handling_Data:
         This function is used to visualize the data
         """
 
-        # if dataset has an X axis and a Y axis, then we can perform visualization
         if self.data.shape[1] == 2:
             self.data_visualized = self.data.copy()
             self.data_visualized = self.data_visualized.drop(['id'], axis=1) if any else self.data_visualized
@@ -367,9 +377,32 @@ class Handling_Data:
 
             self.data_visualized.plot(kind='scatter')  # Plot the data
             plt.show()  # Show the plot
-            print('Data has been visualized')
+            self.DP_Report.append('Data has been visualized')
         else:
-            print('Data does not have an X axis and a Y axis, visualization cannot be performed')
+            self.DP_Report.append('Data is not numeric, so visualization cannot be performed')
+
+        return self.data, self.data_visualized
+
+    def data_report(self):
+        """
+        This function is used to create a report of the data
+        """
+        # nice_print(self.DP_Report)
+        # save report to file
+        with open('data_report.csv', 'w') as f:
+            for item in self.DP_Report:
+                f.write("%s\n" % item)
+
+        return self.DP_Report
+
+    def export_clean_data(self):
+        """
+        This function is used to export the clean data
+        """
+        self.data.to_csv('clean_data.csv')
+        self.DP_Report.append('Clean data has been exported')
+
+        return self.data
 
 
 class Choose_ML_Model:
@@ -378,11 +411,42 @@ class Choose_ML_Model:
     With this , the number of possible machine learning algorithms lowers.
     """
 
-    print('\n' + 'Choose Machine Learning Type')
-
-    def __init__(self, ML_choice):
-        self.ML_choice = ML_choice
+    def __init__(self):
+        self.clean_dataset = pd.read_csv('clean_data.csv')
+        self.x = self.clean_dataset.iloc[:, :-1].values  # Get the independent variables
+        self.y = self.clean_dataset.iloc[:, -1].values  # Get the dependent variables
+        self.features_important = None
+        self.ML_learning = None
+        self.categories_known = None
+        self.y_test = None
+        self.y_train = None
+        self.x_test = None
+        self.x_train = None
+        self.ML_estimator = None
+        self.estimation = None
+        self.ML_choice = None
+        self.cat_quant = ['categorical', 'quantitative']
+        self.user_choice = None
         self.ML_report = None
+
+    def impute_dependent_variable(self):
+        """
+        This function is used to impute the dependent variable if a user does not have a dependent variable
+        """
+        # TODO: Add a check to see if the dependent variable is already imputed AND ask the user which one to use
+
+        # TODO: If not imputed, then attempt to impute the dependent variable with the information given by the user#
+
+    def split_data(self):
+        """
+        This function is used to split the data into training and testing sets
+        """
+
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.x, self.y,
+                                                                                test_size=0.2,
+                                                                                random_state=0)
+
+        return self.x_train, self.x_test, self.y_train, self.y_test
 
     def choose_ml_type(self):
         # choose between supervised, reinforcement and unsupervised learning
@@ -400,7 +464,7 @@ class Choose_ML_Model:
             self.ML_choice = 'Unsupervised Learning'
         else:
             print('Invalid choice, please try again')
-            self.choose_ml_type()  # call the function again
+            self.choose_ml_type()
 
             report = 'You chose ' + self.ML_choice + ' as your machine learning type'
             self.ML_report.append(report)
@@ -422,7 +486,6 @@ class Choose_ML_Model:
             else:
                 print('Invalid choice, please try again')
                 self.choose_ml_learning()  # call the function again
-
 
         elif self.ML_choice == '2':  # unsupervised learning
             self.ML_learning = input('Types of Unsupervised Learning: \n'
@@ -458,21 +521,243 @@ class Choose_ML_Model:
 
         return self.ML_learning
 
+    def ml_estimator(self):
 
-class estimate_machine_learning:
-    """
+        """
+        The machine learning estimator finds the right machine learning algorithm to use depending on the dataset.
+        """
+        # if there is more than 50 samples in the cleaned dataset, then i begin estimating a machine learning algorithm
+        if self.clean_dataset.shape[0] > 50:
 
-    """
+            # ask the user if the data is categorical or quantitative
+            ask_user = input(' Would you like to predict a category or quantity \n'
+                             'Type 1 for category \n'
+                             'or'
+                             'Type 2 for quantity \n'
+                             'Enter your choice: ')
+
+            if ask_user == '1':
+                self.user_choice = 'categorical'
+            elif ask_user == '2':
+                self.user_choice = 'quantitative'
+
+            else:
+                print('Invalid choice, please try again')
+                self.ml_estimator()  # call the function again
+
+                if self.user_choice == self.cat_quant[0]:  # if the user chooses categorical
+
+                    if self.clean_dataset.shape[1] > 2:
+                        self.ML_estimator = 'Classification'
+                        if self.clean_dataset < 100000:
+                            try:
+                                self.estimation = LinearSVC()  # Create a LinearSVC object
+                                self.estimation.fit(self.x, self.y)  # Fit the LinearSVC object to the data
+                                report = 'This is a classification problem, the machine learning algorithm to use would be LinearSVC'
+                                self.ML_report.append(report)
+                            except:
+                                if self.clean_dataset.dtypes != 'object':  # if the dataset is not text data
+                                    report = 'The dataset is not text data'
+                                    self.ML_report.append(report, '\n')
+                                    try:
+                                        self.estimation = KNeighborsClassifier()  # Create a KNeighborsClassifier object
+                                        self.estimation.fit(self.x,
+                                                            self.y)  # Fit the KNeighborsClassifier object to the data
+                                        report = 'This is a classification problem, the machine learning algorithm to use would be KNeighborsClassifier'
+                                        self.ML_report.append(report)
+                                    except:  # if this does not work then try svc
+                                        self.estimation = SVC()  # Create a SVC object
+                                        self.estimation.fit(self.x, self.y)  # Fit the SVC object to the data
+                                        report = 'This is a classification problem, the machine learning algorithm to use would be SVC'
+                                        self.ML_report.append(report)
+                                else:
+                                    # try naive bayes
+                                    self.estimation = GaussianNB()  # Create a GaussianNB object
+                                    self.estimation.fit(self.x, self.y)  # Fit the GaussianNB object to the data
+                                    report = 'This is a classification problem, the machine learning algorithm to use would be GaussianNB'
+                                    self.ML_report.append(report)
+                        else:
+                            # try SGD classifier
+                            try:
+                                self.estimation = SGDClassifier()  # Create a SGDClassifier object
+                                self.estimation.fit(self.x, self.y)  # Fit the SGDClassifier object to the data
+                                report = 'This is a classification problem, the machine learning algorithm to use would be SGDClassifier'
+                                self.ML_report.append(report)
+                            except:
+                                # try kernel approximation
+                                pass
+                    else:  # if the dataset is not labelled then we have as a clustering problem
+                        self.ML_estimator = 'Clustering'
+                        # are any categories known?
+                        ask_categories = input('Are any categories known? \n'
+                                               'Type 1 for yes \n'
+                                               'or'
+                                               'Type 2 for no \n'
+                                               'Enter your choice: ')
+                        if ask_categories == '1':
+                            self.categories_known = 'yes'
+                        elif ask_categories == '2':
+                            self.categories_known = 'no'
+                        else:
+                            print('Invalid choice, please try again')
+                            self.ml_estimator()
+
+                        if self.categories_known == 'yes':
+                            # check if dataset is less than 10000 samples
+                            if self.clean_dataset.shape[0] < 10000:
+                                # try kmeans
+                                try:
+                                    self.estimation = KMeans()  # Create a KMeans object
+                                    self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
+                                    report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
+                                    self.ML_report.append(report)
+                                except:
+
+                                    self.estimation = SpectralClustering()  # Create a SpectralClustering object
+                                    self.estimation.fit(self.x, self.y)  # Fit the SpectralClustering object to the data
+                                    report = 'This is a clustering problem, the machine learning algorithm to use would be SpectralClustering'
+                                    self.ML_report.append(report)
+                            else:
+                                # try minibatch kmeans
+                                try:
+                                    self.estimation = MiniBatchKMeans()  # Create a MiniBatchKMeans object
+                                    self.estimation.fit(self.x, self.y)  # Fit the MiniBatchKMeans object to the data
+                                    report = 'This is a clustering problem, the machine learning algorithm to use would be MiniBatchKMeans'
+                                    self.ML_report.append(report)
+
+                                except:
+                                    # last option did not work so reverted back to kmeans
+                                    self.estimation = KMeans()  # Create a KMeans object
+                                    self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
+                                    report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
+                                    self.ML_report.append(report)
+                        else:
+                            # check if dataset is less than 10000 samples
+                            if self.clean_dataset.shape[0] < 10000:
+                                # try mean shift or vbgmm
+                                try:
+                                    self.estimation = MeanShift()  # Create a MeanShift object
+                                    self.estimation.fit(self.x, self.y)  # Fit the MeanShift object to the data
+                                    report = 'This is a clustering problem, the machine learning algorithm to use would be MeanShift'
+                                    self.ML_report.append(report)
+                                except:
+                                    # TODO: make a function that uses the data on vgbmm
+                                    pass
+                            else:
+                                # tough luck
+                                pass
+                else:
+                    if self.user_choice == self.cat_quant[1]:
+                        self.ML_estimator = 'Regression'
+                        # check if the dataset less than 100,000 samples
+                        if self.clean_dataset.shape[0] > 100000:
+
+                            self.estimation = SGDRegressor()  # Create a SGDRegressor object
+                            self.estimation.fit(self.x, self.y)  # Fit the SGDRegressor object to the data
+                            report = 'This is a regression problem, the machine learning algorithm to use would be SGDRegressor'
+                            self.ML_report.append(report)
+                        else:
+                            # check if a few features are important
+                            ask_features = input('Are a few features important? \n'
+                                                 'Type 1 for yes \n'
+                                                 'or'
+                                                 'Type 2 for no \n'
+                                                 'Enter your choice: ')
+
+                            if ask_features == '1':
+                                self.features_important = 'yes'
+                            elif ask_features == '2':
+                                self.features_important = 'no'
+                            else:
+                                print('Invalid choice, please try again')
+                                self.ml_estimator()
+
+                            if self.features_important == 'yes':
+                                # try Lasso or ElasticNet
+                                try:
+                                    self.estimation = ElasticNet()  # Create a ElasticNet object
+                                    self.estimation.fit(self.x, self.y)  # Fit the ElasticNet object to the data
+                                    report = 'This is a regression problem, the machine learning algorithm to use would be ElasticNet'
+                                    self.ML_report.append(report)
+                                except:
+                                    # try Lasso
+                                    self.estimation = Lasso()  # Create a Lasso object
+                                    self.estimation.fit(self.x, self.y)  # Fit the Lasso object to the data
+                                    report = 'This is a regression problem, the machine learning algorithm to use would be Lasso'
+                                    self.ML_report.append(report)
+                            else:
+                                # try Ridge Regression
+                                try:
+                                    self.estimation = Ridge()  # Create a Ridge object
+                                    self.estimation.fit(self.x, self.y)  # Fit the Ridge object to the data
+                                    report = 'This is a regression problem, the machine learning algorithm to use would be Ridge'
+                                    self.ML_report.append(report)
+                                except:
+                                    # try SVR(kernel = 'linear')
+                                    self.estimation = SVR(kernel='linear')  # Create a SVR object
+                                    self.estimation.fit(self.x, self.y)  # Fit the SVR object to the data
+                                    report = 'This is a regression problem, the machine learning algorithm to use would be SVR'
+                                    self.ML_report.append(report)
+                    else:
+                        print('Invalid choice, please try again')
+                        self.ml_estimator()
+
+    def ml_predict(self):
+
+        """
+        With the machine learning algorithm chosen from the  ml_estimator function, this function will predict the output of the dataset.
+        """
+        pass
 
 
 if __name__ == '__main__':
-    data_check = Handling_Data(data=pd.read_csv('datasets/ds_salaries.csv'))
-    # data_check.load_data()
-    data_check.data_cleaning()
-    data_check.data_transformation()
-    data_check.data_reduction()
-    data_check.data_visualization()
 
-    # Either choose the type of machine learning or let the program choose for you
+    if_merged = input('Have you merged your datasets? \n'
+                      'Type yes \n'
+                      'or'
+                      'Type no \n'
+                      'Enter your choice: ')
 
-    # Perform the machine learning algorithm and show the user the results it would get if it was trained on the data set.
+    if if_merged == 'yes':
+        print('Great, lets get started. \n')
+        print("Please enter the path to your merged dataset:")
+        path = input()
+        dataset = pd.read_csv(path)
+        data_check = Handling_Data(dataset)
+        data_check.data_cleaning()
+        data_check.data_reduction()
+        data_check.data_visualization()
+        data_check.data_report()
+        data_check.export_clean_data()
+        exit()
+
+        # Time to work on Choose Ml_Model
+        ml_model = Choose_ML_Model()
+        ml_model.split_data()
+        ml_model.choose_ml_type()
+        ml_model.choose_ml_learning()
+        ml_model.ml_estimator()
+        ml_model.ml_predict()
+
+    elif if_merged == 'no':
+        print('Please merge your datasets and try again')
+
+        merge_data = Merge_Datasets(x_data=pd.read_csv('x_data.csv'), y_data=pd.read_csv('y_data.csv'))
+        merge_data.merge_datasets()
+        data_check = Handling_Data(data=pd.read_csv('merged_data.csv'))
+        data_check.data_cleaning()
+        data_check.data_transformation()
+        data_check.data_reduction()
+        data_check.data_visualization()
+
+        # Time to work on Choose Ml_Model
+        ml_model = Choose_ML_Model()
+        ml_model.split_data()
+        ml_model.choose_ml_type()
+        ml_model.choose_ml_learning()
+        ml_model.ml_estimator()
+        ml_model.ml_predict()
+
+    else:
+        print('Invalid choice, please try again')
+        sys.exit()
