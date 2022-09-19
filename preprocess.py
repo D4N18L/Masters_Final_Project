@@ -1,12 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import os
-import sys
-import gradio as gr
-from scipy.stats import stats
-from sklearn import preprocessing
+
 from sklearn.cluster import KMeans, MiniBatchKMeans, SpectralClustering, MeanShift
 from sklearn.decomposition import PCA
 from sklearn.linear_model import SGDClassifier, SGDRegressor, ElasticNet, Lasso, Ridge
@@ -128,7 +123,8 @@ class Handling_Data:
         self.data_shape = self.data.shape if any else print('Dataset is empty')
         self.DP_Report.append('Data Shape: \n' + str(self.data_shape))
 
-        if self.data_shape[0] > 1 and self.data_shape[1] > 1:
+        if self.data_shape[0] > 1 and self.data_shape[
+            1] > 1:  # checks rows and columns for values that are greater than 1 to avoid
             self.DP_Report.append('Data has a probability distribution: \n')
         else:
             self.DP_Report.append('Data does not have a probability distribution: \n')
@@ -149,7 +145,9 @@ class Handling_Data:
             self.data_numerical_columns = self.data_numerical.columns
             self.DP_Report.append('Data Numerical Columns: \n' + str(self.data_numerical_columns))
 
-            self.data_numerical_IQR = self.data_numerical.quantile(0.75) - self.data_numerical.quantile(0.25)
+            # Outlier is checked using the interquartile range (IQR)
+
+            self.data_numerical_IQR = self.data_numerical.quanxxtile(0.75) - self.data_numerical.quantile(0.25)
             self.DP_Report.append('Data Numerical IQR: \n' + str(self.data_numerical_IQR))
 
             self.data_numerical_outliers = self.data_numerical[(self.data_numerical > self.data_numerical_IQR * 1.5) | (
@@ -163,10 +161,9 @@ class Handling_Data:
 
             self.data_numerical_outliers_percentage = self.data_numerical_outliers_count / self.data_numerical.shape[
                 0] * 100
-            self.DP_Report.append(
-                'Data Numerical Outliers Percentage: \n' + str(self.data_numerical_outliers_percentage))
+            self.DP_Report.append('Data Numerical Outliers Percentage: \n' + str(self.data_numerical_outliers_percentage))
 
-            if self.data_numerical_outliers_percentage > 0.1:
+            if self.data_numerical_outliers_percentage > 0.1:  # if the percentage of outliers is greater than 0.1
                 self.DP_Report.append('Data Numerical Outliers Percentage is greater than 10%: \n')
                 # print("The data has outliers")
 
@@ -180,8 +177,10 @@ class Handling_Data:
                 self.DP_Report.append('Dataframe with outliers removed: \n' + str(self.data))
 
 
-            else:
+            else:  # if the percentage of outliers is less than 0.1
+                self.DP_Report.append('Data Numerical Outliers Percentage is less than 10%: \n')
                 pass
+
 
         # Check if the dataset is less than 1000 rows
         elif self.data.shape[0] < 1000:
@@ -196,11 +195,12 @@ class Handling_Data:
 
             for column in self.data_numerical_columns:
                 self.data_numerical[column] = (self.data_numerical[column] - self.data_numerical[column].mean()) / \
-                                              self.data_numerical[column].std()
+                                              self.data_numerical[
+                                                  column].std()  # the z score checks the outliers in the data by checking the standard deviation of the data and removing the outliers that are more than 3 standard deviations from the mean
 
                 self.DP_Report.append('Z-score for column: \n' + str(column) + str(self.data_numerical[column]))
 
-                threshold = 2  # threshold for the z-score
+                threshold = 2  # threshold for the z-score is set to 2 standard deviations from the mean of the data to remove outliers
                 self.data_outliers = self.data_numerical[
                     (self.data_numerical[column] > threshold) | (self.data_numerical[column] < -threshold)]
                 self.DP_Report.append('Data Outliers: \n' + str(self.data_outliers))
@@ -260,8 +260,7 @@ class Handling_Data:
 
         # if the missing values are between 0 and 10% of the total values, then we can drop them
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.1):
-            self.DP_Report.append(
-                'Amount of missing values is less than 10% of the total values : The best option is to drop the missing values')
+            self.DP_Report.append('Amount of missing values is less than 10% of the total values : The best option is to drop the missing values')
             self.data.dropna(inplace=True)
 
         # if the missing values are between 10% and 20% of the total values, then we can replace them with the mean of the column
@@ -270,12 +269,13 @@ class Handling_Data:
                 'Amount of missing values is between 10% and 20% of the total values : The best option is to replace the missing values with the mean of the column')
             self.data.fillna(self.data.mean(), inplace=True)
 
-        elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.3):
+        elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.3): # if the missing values are between 20% and 30% of the total values, then we can replace them with the median of the column
+            # The median is a better option than the mean because it is not affected by outliers in the data and it is more robust than the mean in this case
             self.DP_Report.append(
                 'Amount of missing values is between 20% and 30% of the total values : The best option is to replace the missing values with the median of the column')
             self.data.fillna(self.data.median(), inplace=True)
 
-        # if the missing values are between 30% and 40% of the total values, then we can replace them with the mode of the column
+        # if the missing values are between 30% and 40% of the total values, then we can replace them with the mode of the column .
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.4):
             self.DP_Report.append(
                 'Amount of missing values is between 30% and 40% of the total values : The best option is to replace the missing values with the mode of the column')
@@ -284,8 +284,9 @@ class Handling_Data:
         # if the missing values are between 40% and the rest of the total values, then we can replace them with the most common value of the column
         else:
             self.DP_Report.append(
-                'Amount of missing values is between 40% and the rest of the total values : The best option is to replace the missing values with the most common value of the column')
-            self.data.fillna(self.data.value_counts().idxmax(), inplace=True)
+                'Amount of missing values is between 40% and the rest of the total values : The best option is to replace the missing values with a randmisation of the remaining values in the column')
+            self.data.fillna(self.data.sample(frac=1).values, inplace=True) # randomise the values in the column
+
 
         """
         Handling Duplicates
@@ -416,7 +417,7 @@ class Choose_ML_Model:
         self.x = self.clean_dataset.iloc[:, :-1].values  # Get the independent variables
         self.y = self.clean_dataset.iloc[:, -1].values  # Get the dependent variables
         self.features_important = None
-        self.ML_learning = None
+        self.ML_learning = ''
         self.categories_known = None
         self.y_test = None
         self.y_train = None
@@ -427,7 +428,7 @@ class Choose_ML_Model:
         self.ML_choice = None
         self.cat_quant = ['categorical', 'quantitative']
         self.user_choice = None
-        self.ML_report = None
+        self.ML_report = []
 
     def impute_dependent_variable(self):
         """
@@ -530,6 +531,7 @@ class Choose_ML_Model:
         if self.clean_dataset.shape[0] > 50:
 
             # ask the user if the data is categorical or quantitative
+
             ask_user = input(' Would you like to predict a category or quantity \n'
                              'Type 1 for category \n'
                              'or'
@@ -540,167 +542,181 @@ class Choose_ML_Model:
                 self.user_choice = 'categorical'
             elif ask_user == '2':
                 self.user_choice = 'quantitative'
-
             else:
                 print('Invalid choice, please try again')
                 self.ml_estimator()  # call the function again
 
-                if self.user_choice == self.cat_quant[0]:  # if the user chooses categorical
+            if self.user_choice == self.cat_quant[0]:  # if the user chooses categorical
 
-                    if self.clean_dataset.shape[1] > 2:
-                        self.ML_estimator = 'Classification'
-                        if self.clean_dataset < 100000:
-                            try:
-                                self.estimation = LinearSVC()  # Create a LinearSVC object
-                                self.estimation.fit(self.x, self.y)  # Fit the LinearSVC object to the data
-                                report = 'This is a classification problem, the machine learning algorithm to use would be LinearSVC'
+                if self.clean_dataset.shape[1] > 2:
+                    self.ML_estimator = 'Classification'
+                    if self.clean_dataset < 100000:
+
+                        self.estimation = LinearSVC()  # Create a LinearSVC object
+                        self.estimation.fit(self.x, self.y)  # Fit the LinearSVC object to the data
+                        report = 'This is a classification problem, the machine learning algorithm to use would be LinearSVC'
+                        print(report)
+                        self.ML_report.append(report)
+
+                    else:
+                        self.estimation = SVC()  # Create a SVC object
+                        self.estimation.fit(self.x, self.y)  # Fit the SVC object to the data
+                        report = 'This is a classification problem, the machine learning algorithm to use would be SVC'
+                        print(report)
+                        self.ML_report.append(report)
+
+                        """
+                       
+                            if self.clean_dataset.dtypes != 'object':  # if the dataset is not text data
+                                report = 'The dataset is not text data'
+                                print(report)
                                 self.ML_report.append(report)
-                            except:
-                                if self.clean_dataset.dtypes != 'object':  # if the dataset is not text data
-                                    report = 'The dataset is not text data'
-                                    self.ML_report.append(report, '\n')
-                                    try:
-                                        self.estimation = KNeighborsClassifier()  # Create a KNeighborsClassifier object
-                                        self.estimation.fit(self.x,
-                                                            self.y)  # Fit the KNeighborsClassifier object to the data
-                                        report = 'This is a classification problem, the machine learning algorithm to use would be KNeighborsClassifier'
-                                        self.ML_report.append(report)
-                                    except:  # if this does not work then try svc
-                                        self.estimation = SVC()  # Create a SVC object
-                                        self.estimation.fit(self.x, self.y)  # Fit the SVC object to the data
-                                        report = 'This is a classification problem, the machine learning algorithm to use would be SVC'
-                                        self.ML_report.append(report)
-                                else:
-                                    # try naive bayes
-                                    self.estimation = GaussianNB()  # Create a GaussianNB object
-                                    self.estimation.fit(self.x, self.y)  # Fit the GaussianNB object to the data
-                                    report = 'This is a classification problem, the machine learning algorithm to use would be GaussianNB'
+                                try:
+                                    self.estimation = KNeighborsClassifier()  # Create a KNeighborsClassifier object
+                                    self.estimation.fit(self.x,
+                                                        self.y)  # Fit the KNeighborsClassifier object to the data
+                                    report = 'This is a classification problem, the machine learning algorithm to use would be KNeighborsClassifier'
+                                    print(report)
                                     self.ML_report.append(report)
-                        else:
-                            # try SGD classifier
+                                except:  # if this does not work then try svc
+                                    self.estimation = SVC()  # Create a SVC object
+                                    self.estimation.fit(self.x, self.y)  # Fit the SVC object to the data
+                                    report = 'This is a classification problem, the machine learning algorithm to use would be SVC'
+                                    print(report)
+                                    self.ML_report.append(report)
+                            else:
+                                # try naive bayes
+                                self.estimation = GaussianNB()  # Create a GaussianNB object
+                                self.estimation.fit(self.x, self.y)  # Fit the GaussianNB object to the data
+                                report = 'This is a classification problem, the machine learning algorithm to use would be GaussianNB'
+                                self.ML_report.append(report)
+                    else:
+                        # try SGD classifier
+                        try:
+                            self.estimation = SGDClassifier()  # Create a SGDClassifier object
+                            self.estimation.fit(self.x, self.y)  # Fit the SGDClassifier object to the data
+                            report = 'This is a classification problem, the machine learning algorithm to use would be SGDClassifier'
+                            self.ML_report.append(report)
+                        except:
+                            # try kernel approximation
+                            pass
+                else:  # if the dataset is not labelled then we have as a clustering problem
+                    self.ML_estimator = 'Clustering'
+                    # are any categories known?
+                    ask_categories = input('Are any categories known? \n'
+                                           'Type 1 for yes \n'
+                                           'or'
+                                           'Type 2 for no \n'
+                                           'Enter your choice: ')
+                    if ask_categories == '1':
+                        self.categories_known = 'yes'
+                    elif ask_categories == '2':
+                        self.categories_known = 'no'
+                    else:
+                        print('Invalid choice, please try again')
+                        self.ml_estimator()
+
+                    if self.categories_known == 'yes':
+                        # check if dataset is less than 10000 samples
+                        if self.clean_dataset.shape[0] < 10000:
+                            # try kmeans
                             try:
-                                self.estimation = SGDClassifier()  # Create a SGDClassifier object
-                                self.estimation.fit(self.x, self.y)  # Fit the SGDClassifier object to the data
-                                report = 'This is a classification problem, the machine learning algorithm to use would be SGDClassifier'
+                                self.estimation = KMeans()  # Create a KMeans object
+                                self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
+                                report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
                                 self.ML_report.append(report)
                             except:
-                                # try kernel approximation
+
+                                self.estimation = SpectralClustering()  # Create a SpectralClustering object
+                                self.estimation.fit(self.x, self.y)  # Fit the SpectralClustering object to the data
+                                report = 'This is a clustering problem, the machine learning algorithm to use would be SpectralClustering'
+                                self.ML_report.append(report)
+                        else:
+                            # try minibatch kmeans
+                            try:
+                                self.estimation = MiniBatchKMeans()  # Create a MiniBatchKMeans object
+                                self.estimation.fit(self.x, self.y)  # Fit the MiniBatchKMeans object to the data
+                                report = 'This is a clustering problem, the machine learning algorithm to use would be MiniBatchKMeans'
+                                self.ML_report.append(report)
+
+                            except:
+                                # last option did not work so reverted to kmeans
+                                self.estimation = KMeans()  # Create a KMeans object
+                                self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
+                                report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
+                                self.ML_report.append(report)
+                    else:
+                        # check if dataset is less than 10000 samples
+                        if self.clean_dataset.shape[0] < 10000:
+                            # try mean shift or vbgmm
+                            try:
+                                self.estimation = MeanShift()  # Create a MeanShift object
+                                self.estimation.fit(self.x, self.y)  # Fit the MeanShift object to the data
+                                report = 'This is a clustering problem, the machine learning algorithm to use would be MeanShift'
+                                self.ML_report.append(report)
+                            except:
+                                # TODO: make a function that uses the data on vgbmm
                                 pass
-                    else:  # if the dataset is not labelled then we have as a clustering problem
-                        self.ML_estimator = 'Clustering'
-                        # are any categories known?
-                        ask_categories = input('Are any categories known? \n'
-                                               'Type 1 for yes \n'
-                                               'or'
-                                               'Type 2 for no \n'
-                                               'Enter your choice: ')
-                        if ask_categories == '1':
-                            self.categories_known = 'yes'
-                        elif ask_categories == '2':
-                            self.categories_known = 'no'
+                        else:
+                            # tough luck
+                            pass
+            else:
+                if self.user_choice == self.cat_quant[1]:
+                    self.ML_estimator = 'Regression'
+                    # check if the dataset less than 100,000 samples
+                    if self.clean_dataset.shape[0] > 100000:
+
+                        self.estimation = SGDRegressor()  # Create a SGDRegressor object
+                        self.estimation.fit(self.x, self.y)  # Fit the SGDRegressor object to the data
+                        report = 'This is a regression problem, the machine learning algorithm to use would be SGDRegressor'
+                        self.ML_report.append(report)
+                    else:
+                        # check if a few features are important
+                        ask_features = input('Are a few features important? \n'
+                                             'Type 1 for yes \n'
+                                             'or'
+                                             'Type 2 for no \n'
+                                             'Enter your choice: ')
+
+                        if ask_features == '1':
+                            self.features_important = 'yes'
+                        elif ask_features == '2':
+                            self.features_important = 'no'
                         else:
                             print('Invalid choice, please try again')
                             self.ml_estimator()
 
-                        if self.categories_known == 'yes':
-                            # check if dataset is less than 10000 samples
-                            if self.clean_dataset.shape[0] < 10000:
-                                # try kmeans
-                                try:
-                                    self.estimation = KMeans()  # Create a KMeans object
-                                    self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
-                                    report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
-                                    self.ML_report.append(report)
-                                except:
-
-                                    self.estimation = SpectralClustering()  # Create a SpectralClustering object
-                                    self.estimation.fit(self.x, self.y)  # Fit the SpectralClustering object to the data
-                                    report = 'This is a clustering problem, the machine learning algorithm to use would be SpectralClustering'
-                                    self.ML_report.append(report)
-                            else:
-                                # try minibatch kmeans
-                                try:
-                                    self.estimation = MiniBatchKMeans()  # Create a MiniBatchKMeans object
-                                    self.estimation.fit(self.x, self.y)  # Fit the MiniBatchKMeans object to the data
-                                    report = 'This is a clustering problem, the machine learning algorithm to use would be MiniBatchKMeans'
-                                    self.ML_report.append(report)
-
-                                except:
-                                    # last option did not work so reverted back to kmeans
-                                    self.estimation = KMeans()  # Create a KMeans object
-                                    self.estimation.fit(self.x, self.y)  # Fit the KMeans object to the data
-                                    report = 'This is a clustering problem, the machine learning algorithm to use would be KMeans'
-                                    self.ML_report.append(report)
+                        if self.features_important == 'yes':
+                            # try Lasso or ElasticNet
+                            try:
+                                self.estimation = ElasticNet()  # Create a ElasticNet object
+                                self.estimation.fit(self.x, self.y)  # Fit the ElasticNet object to the data
+                                report = 'This is a regression problem, the machine learning algorithm to use would be ElasticNet'
+                                self.ML_report.append(report)
+                            except:
+                                # try Lasso
+                                self.estimation = Lasso()  # Create a Lasso object
+                                self.estimation.fit(self.x, self.y)  # Fit the Lasso object to the data
+                                report = 'This is a regression problem, the machine learning algorithm to use would be Lasso'
+                                self.ML_report.append(report)
                         else:
-                            # check if dataset is less than 10000 samples
-                            if self.clean_dataset.shape[0] < 10000:
-                                # try mean shift or vbgmm
-                                try:
-                                    self.estimation = MeanShift()  # Create a MeanShift object
-                                    self.estimation.fit(self.x, self.y)  # Fit the MeanShift object to the data
-                                    report = 'This is a clustering problem, the machine learning algorithm to use would be MeanShift'
-                                    self.ML_report.append(report)
-                                except:
-                                    # TODO: make a function that uses the data on vgbmm
-                                    pass
-                            else:
-                                # tough luck
-                                pass
+                            # try Ridge Regression
+                            try:
+                                self.estimation = Ridge()  # Create a Ridge object
+                                self.estimation.fit(self.x, self.y)  # Fit the Ridge object to the data
+                                report = 'This is a regression problem, the machine learning algorithm to use would be Ridge'
+                                self.ML_report.append(report)
+                            except:
+                                # try SVR(kernel = 'linear')
+                                self.estimation = SVR(kernel='linear')  # Create a SVR object
+                                self.estimation.fit(self.x, self.y)  # Fit the SVR object to the data
+                                report = 'This is a regression problem, the machine learning algorithm to use would be SVR'
+                                self.ML_report.append(report)
                 else:
-                    if self.user_choice == self.cat_quant[1]:
-                        self.ML_estimator = 'Regression'
-                        # check if the dataset less than 100,000 samples
-                        if self.clean_dataset.shape[0] > 100000:
-
-                            self.estimation = SGDRegressor()  # Create a SGDRegressor object
-                            self.estimation.fit(self.x, self.y)  # Fit the SGDRegressor object to the data
-                            report = 'This is a regression problem, the machine learning algorithm to use would be SGDRegressor'
-                            self.ML_report.append(report)
-                        else:
-                            # check if a few features are important
-                            ask_features = input('Are a few features important? \n'
-                                                 'Type 1 for yes \n'
-                                                 'or'
-                                                 'Type 2 for no \n'
-                                                 'Enter your choice: ')
-
-                            if ask_features == '1':
-                                self.features_important = 'yes'
-                            elif ask_features == '2':
-                                self.features_important = 'no'
-                            else:
-                                print('Invalid choice, please try again')
-                                self.ml_estimator()
-
-                            if self.features_important == 'yes':
-                                # try Lasso or ElasticNet
-                                try:
-                                    self.estimation = ElasticNet()  # Create a ElasticNet object
-                                    self.estimation.fit(self.x, self.y)  # Fit the ElasticNet object to the data
-                                    report = 'This is a regression problem, the machine learning algorithm to use would be ElasticNet'
-                                    self.ML_report.append(report)
-                                except:
-                                    # try Lasso
-                                    self.estimation = Lasso()  # Create a Lasso object
-                                    self.estimation.fit(self.x, self.y)  # Fit the Lasso object to the data
-                                    report = 'This is a regression problem, the machine learning algorithm to use would be Lasso'
-                                    self.ML_report.append(report)
-                            else:
-                                # try Ridge Regression
-                                try:
-                                    self.estimation = Ridge()  # Create a Ridge object
-                                    self.estimation.fit(self.x, self.y)  # Fit the Ridge object to the data
-                                    report = 'This is a regression problem, the machine learning algorithm to use would be Ridge'
-                                    self.ML_report.append(report)
-                                except:
-                                    # try SVR(kernel = 'linear')
-                                    self.estimation = SVR(kernel='linear')  # Create a SVR object
-                                    self.estimation.fit(self.x, self.y)  # Fit the SVR object to the data
-                                    report = 'This is a regression problem, the machine learning algorithm to use would be SVR'
-                                    self.ML_report.append(report)
-                    else:
-                        print('Invalid choice, please try again')
-                        self.ml_estimator()
+                    print('Invalid choice, please try again')
+                    self.ml_estimator()
+                    
+                    """
 
     def ml_predict(self):
 
@@ -708,56 +724,3 @@ class Choose_ML_Model:
         With the machine learning algorithm chosen from the  ml_estimator function, this function will predict the output of the dataset.
         """
         pass
-
-
-if __name__ == '__main__':
-
-    if_merged = input('Have you merged your datasets? \n'
-                      'Type yes \n'
-                      'or'
-                      'Type no \n'
-                      'Enter your choice: ')
-
-    if if_merged == 'yes':
-        print('Great, lets get started. \n')
-        print("Please enter the path to your merged dataset:")
-        path = input()
-        dataset = pd.read_csv(path)
-        data_check = Handling_Data(dataset)
-        data_check.data_cleaning()
-        data_check.data_reduction()
-        data_check.data_visualization()
-        data_check.data_report()
-        data_check.export_clean_data()
-        exit()
-
-        # Time to work on Choose Ml_Model
-        ml_model = Choose_ML_Model()
-        ml_model.split_data()
-        ml_model.choose_ml_type()
-        ml_model.choose_ml_learning()
-        ml_model.ml_estimator()
-        ml_model.ml_predict()
-
-    elif if_merged == 'no':
-        print('Please merge your datasets and try again')
-
-        merge_data = Merge_Datasets(x_data=pd.read_csv('x_data.csv'), y_data=pd.read_csv('y_data.csv'))
-        merge_data.merge_datasets()
-        data_check = Handling_Data(data=pd.read_csv('merged_data.csv'))
-        data_check.data_cleaning()
-        data_check.data_transformation()
-        data_check.data_reduction()
-        data_check.data_visualization()
-
-        # Time to work on Choose Ml_Model
-        ml_model = Choose_ML_Model()
-        ml_model.split_data()
-        ml_model.choose_ml_type()
-        ml_model.choose_ml_learning()
-        ml_model.ml_estimator()
-        ml_model.ml_predict()
-
-    else:
-        print('Invalid choice, please try again')
-        sys.exit()
