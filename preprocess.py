@@ -161,7 +161,8 @@ class Handling_Data:
 
             self.data_numerical_outliers_percentage = self.data_numerical_outliers_count / self.data_numerical.shape[
                 0] * 100
-            self.DP_Report.append('Data Numerical Outliers Percentage: \n' + str(self.data_numerical_outliers_percentage))
+            self.DP_Report.append(
+                'Data Numerical Outliers Percentage: \n' + str(self.data_numerical_outliers_percentage))
 
             if self.data_numerical_outliers_percentage > 0.1:  # if the percentage of outliers is greater than 0.1
                 self.DP_Report.append('Data Numerical Outliers Percentage is greater than 10%: \n')
@@ -260,7 +261,8 @@ class Handling_Data:
 
         # if the missing values are between 0 and 10% of the total values, then we can drop them
         elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.1):
-            self.DP_Report.append('Amount of missing values is less than 10% of the total values : The best option is to drop the missing values')
+            self.DP_Report.append(
+                'Amount of missing values is less than 10% of the total values : The best option is to drop the missing values')
             self.data.dropna(inplace=True)
 
         # if the missing values are between 10% and 20% of the total values, then we can replace them with the mean of the column
@@ -269,7 +271,8 @@ class Handling_Data:
                 'Amount of missing values is between 10% and 20% of the total values : The best option is to replace the missing values with the mean of the column')
             self.data.fillna(self.data.mean(), inplace=True)
 
-        elif self.data_missing <= (self.data.shape[0] * self.data.shape[1] * 0.3): # if the missing values are between 20% and 30% of the total values, then we can replace them with the median of the column
+        elif self.data_missing <= (self.data.shape[0] * self.data.shape[
+            1] * 0.3):  # if the missing values are between 20% and 30% of the total values, then we can replace them with the median of the column
             # The median is a better option than the mean because it is not affected by outliers in the data and it is more robust than the mean in this case
             self.DP_Report.append(
                 'Amount of missing values is between 20% and 30% of the total values : The best option is to replace the missing values with the median of the column')
@@ -285,8 +288,7 @@ class Handling_Data:
         else:
             self.DP_Report.append(
                 'Amount of missing values is between 40% and the rest of the total values : The best option is to replace the missing values with a randmisation of the remaining values in the column')
-            self.data.fillna(self.data.sample(frac=1).values, inplace=True) # randomise the values in the column
-
+            self.data.fillna(self.data.sample(frac=1).values, inplace=True)  # randomise the values in the column
 
         """
         Handling Duplicates
@@ -433,10 +435,33 @@ class Choose_ML_Model:
     def impute_dependent_variable(self):
         """
         This function is used to impute the dependent variable if a user does not have a dependent variable
+        Add a check to see if the dependent variable is already imputed AND ask the user which one to use
+        If not imputed, then attempt to impute the dependent variable with the information given by the user
         """
-        # TODO: Add a check to see if the dependent variable is already imputed AND ask the user which one to use
 
-        # TODO: If not imputed, then attempt to impute the dependent variable with the information given by the user#
+        # Check if the dependent variable is needed
+        dependent_variable_needed = input('Does the data need a dependent variable? (y/n): ')
+        if dependent_variable_needed == 'n':
+            self.ML_report.append('The data does not need a dependent variable')
+            return self.y
+        else:
+            # Make a new column for the dependent variable
+            self.clean_dataset['class'] = None
+            num_classes = int(input('How many classes are there? (int): '))
+
+            if num_classes == 1:
+                # dependent variable can not be 1 , it has to be 2 or more
+                print('The dependent variable can not be 1, it has to be 2 or more')
+                self.impute_dependent_variable()
+
+            elif num_classes == 2:
+                pass
+
+            elif num_classes > 2:
+                pass
+
+            else:
+                pass
 
     def split_data(self):
         """
